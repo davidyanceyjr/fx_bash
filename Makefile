@@ -1,9 +1,9 @@
-# fp_prelude/Makefile
-# Builds build/fp_prelude.so as a Bash loadable builtin.
+# fx_bash/Makefile
+# Builds build/fx_bash.so as a Bash loadable builtin.
 # Assumes Bash dev headers (builtins.h, shell.h) exist under $(BASH_INC).
 # Adjust BASH_INC if needed (e.g., make BASH_INC=/usr/local/include/bash).
 
-PKGNAME    := fp_prelude
+PKGNAME    := fx_bash
 BUILD_DIR  := build
 TARGET     := $(BUILD_DIR)/$(PKGNAME).so
 

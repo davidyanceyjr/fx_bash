@@ -36,6 +36,8 @@ typedef struct {
     int    done;
 } find_cfg;
 
+static void find_destroy(void *vcfg);
+
 static int push(find_cfg *c, const char *path, int depth, DIR *opendir_now) {
     if (c->top == c->cap) {
         int ncap = c->cap ? c->cap * 2 : 32;
@@ -89,26 +91,37 @@ static int ensure_obuf(find_cfg *c, size_t need) {
 
 static int find_parse(int argc, char **argv, int i, void **cfg_out) {
     find_cfg *c = calloc(1, sizeof *c);
+    if (!c) return -1;
     c->start = fp_xstrdup(".");
     c->maxdepth = -1;
 
-    int j = i + 1;
-    if (j < argc && argv[j][0] != '-') { free(c->start); c->start = fp_xstrdup(argv[j++]); }
+    int j = i;
+    if (j < argc && (strcmp(argv[j], "find") == 0 || strcmp(argv[j], "fp_find") == 0)) j++;
+
+    if (j < argc && argv[j][0] != '-' && lookup_op(argv[j]) == NULL) {
+        free(c->start);
+        c->start = fp_xstrdup(argv[j++]);
+    }
+
     while (j < argc) {
         char *a = argv[j];
-        if (strcmp(a, "-type") == 0 && j+1 < argc) {
-            char t = argv[++j][0];
-            if (t=='f' || t=='d') c->type = t;
-            j++; continue;
+        if (lookup_op(a) != NULL) break;
+
+        if (strcmp(a, "-type") == 0) {
+            if (++j >= argc) { find_destroy((void *)c); return -1; }
+            char t = argv[j][0]; if (t=='f' || t=='d') c->type = t; j++; continue;
         }
-        if (strcmp(a, "-name") == 0 && j+1 < argc) {
-            c->namepat = fp_xstrdup(argv[++j]); j++; continue;
+        if (strcmp(a, "-name") == 0) {
+            if (++j >= argc) { find_destroy((void *)c); return -1; }
+            c->namepat = fp_xstrdup(argv[j++]); continue;
         }
-        if (strcmp(a, "-maxdepth") == 0 && j+1 < argc) {
-            long md=0; if (fp_parse_long(argv[++j], &md)==0 && md>=0) c->maxdepth=(int)md; j++; continue;
+        if (strcmp(a, "-maxdepth") == 0) {
+            if (++j >= argc) { find_destroy((void *)c); return -1; }
+            long md=0; if (fp_parse_long(argv[j], &md)==0 && md>=0) c->maxdepth=(int)md; j++; continue;
         }
         if (strcmp(a, "-print0") == 0) { c->print0 = 1; j++; continue; }
-        break; // stop for fx to read the next op token
+
+        break; // unknown -> let fx see it
     }
     *cfg_out = c;
     return j;

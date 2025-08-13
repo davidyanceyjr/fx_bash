@@ -13,24 +13,21 @@ typedef struct {
 } emit_cfg;
 
 static int emit_parse(int argc, char **argv, int i, void **cfg_out) {
-    // argv[i] is "emit" or "fp_emit"
-    int j = i + 1;
-    if (j >= argc) return -1;
-
-    // Collect args until next token is a known op OR end of argv
-    int start = j;
-    while (j < argc) {
-        if (lookup_op(argv[j]) != NULL) break; // stop before next op
-        j++;
-    }
-    int count = j - start;
-    if (count <= 0) return -1;
-
     emit_cfg *c = calloc(1, sizeof *c);
+    if (!c) return -1;
+
+    int j = i;
+    if (j < argc && (strcmp(argv[j], "emit") == 0 || strcmp(argv[j], "fp_emit") == 0)) j++;
+
+    int start = j;
+    while (j < argc && lookup_op(argv[j]) == NULL) j++;
+    int count = j - start;
+    if (count <= 0) { free(c); return -1; }
+
     c->items = &argv[start];
     c->n = count;
     *cfg_out = c;
-    return j; // next index after our args
+    return j;
 }
 
 static int emit_produce(void *vcfg, char **linep, size_t *lenp) {

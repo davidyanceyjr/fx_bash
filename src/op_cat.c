@@ -31,27 +31,22 @@ typedef struct {
 // Consumes args until next token is recognized as an op (so 'fx cat a b cut ...' works).
 // If no file given, default to "-" (stdin).
 static int cat_parse(int argc, char **argv, int i, void **cfg_out) {
-    int j = i + 1;
-    // collect until next known op token
+    cat_cfg *c = calloc(1, sizeof *c);
+    if (!c) return -1;
+
+    int j = i;
+    if (j < argc && (strcmp(argv[j], "cat") == 0 || strcmp(argv[j], "fp_cat") == 0)) j++;
+
     int start = j;
-    while (j < argc) {
-        if (lookup_op(argv[j]) != NULL) break;
-        j++;
-    }
+    while (j < argc && lookup_op(argv[j]) == NULL) j++;
     int count = j - start;
 
-    cat_cfg *c = calloc(1, sizeof *c);
-    if (count <= 0) {
-        // default to stdin
-        static char *dash = "-";
-        c->paths = &dash;
-        c->n = 1;
-    } else {
-        c->paths = &argv[start];
-        c->n = count;
-    }
+    static char *dash = "-";
+    if (count <= 0) { c->paths = &dash; c->n = 1; }
+    else { c->paths = &argv[start]; c->n = count; }
+
     *cfg_out = c;
-    return (count <= 0) ? (i + 1) : j;
+    return j;
 }
 
 static int cat_open_next(cat_cfg *c) {

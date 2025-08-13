@@ -180,3 +180,16 @@ struct builtin fp_tr_struct   = { "fp_tr",   fp_tr_builtin,   BUILTIN_ENABLED, t
 struct builtin fp_grep_struct = { "fp_grep", fp_grep_builtin, BUILTIN_ENABLED, grep_doc, "fp_grep [opts]", 0 };
 struct builtin fp_take_struct = { "fp_take", fp_take_builtin, BUILTIN_ENABLED, take_doc, "fp_take [opts]", 0 };
 struct builtin fp_find_struct = { "fp_find", fp_find_builtin, BUILTIN_ENABLED, find_doc, "fp_find [opts]", 0 };
+
+/* Export table for all builtins in this module */
+struct builtin *builtins[] = {
+    &fx_struct,
+    &fp_cat_struct,
+    &fp_emit_struct,
+    &fp_cut_struct,
+    &fp_tr_struct,
+    &fp_grep_struct,
+    &fp_take_struct,
+    &fp_find_struct,
+    0   /* Must be NULL-terminated */
+};

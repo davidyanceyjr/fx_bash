@@ -9,16 +9,20 @@ typedef struct {
 
 static int take_parse(int argc, char **argv, int i, void **cfg_out) {
     take_cfg *c = calloc(1, sizeof *c);
-    int j = i+1;
-    // Accept: -n N  or just N
-    if (j < argc && strcmp(argv[j], "-n") == 0 && j+1 < argc) {
-        if (fp_parse_long(argv[j+1], &c->n) < 0) { free(c); return -1; }
-        j += 2;
-    } else if (j < argc) {
-        if (fp_parse_long(argv[j], &c->n) < 0) { free(c); return -1; }
-        j++;
-    } else { free(c); return -1; }
-    if (c->n < 0) c->n = 0;
+    if (!c) return -1;
+    int j = i;
+
+    if (j < argc && (strcmp(argv[j], "take") == 0 || strcmp(argv[j], "fp_take") == 0)) j++;
+
+    if (j < argc && strcmp(argv[j], "-n") == 0) {
+        if (++j >= argc) { free(c); return -1; }
+    }
+    if (j >= argc || lookup_op(argv[j]) != NULL) { free(c); return -1; }
+
+    long n=0; if (fp_parse_long(argv[j], &n) < 0) { free(c); return -1; }
+    c->n = (n < 0 ? 0 : n);
+    j++;
+
     *cfg_out = c;
     return j;
 }

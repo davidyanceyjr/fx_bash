@@ -12,32 +12,31 @@ typedef struct {
 } cut_cfg;
 
 static int cut_parse(int argc, char **argv, int i, void **cfg_out) {
-    // argv[i] is "cut"/"fp_cut"
     cut_cfg *c = calloc(1, sizeof *c);
-    c->delim = '\t'; // POSIX cut default is TAB; but user will likely pass -d ,
-    c->outdelim = NULL;
-    int j = i+1;
-    
-    // src/op_cut.c  (inside cut_parse)
+    if (!c) return -1;
+    c->delim = '\t';
+
+    int j = i;
+    if (j < argc && (strcmp(argv[j], "cut") == 0 || strcmp(argv[j], "fp_cut") == 0)) j++;
+
     for (; j < argc; j++) {
         char *a = argv[j];
-        if (a[0] != '-') break;
 
-        // -d <char>  or -dX (attached)
+        if (lookup_op(a) != NULL) break;        // fx boundary
+        if (a[0] != '-') break;                 // no non-option operands in this subset
+
+        // -d CHAR or -d, (attached)
         if (strcmp(a, "-d") == 0) {
-            if (j+1 >= argc) { free(c); return -1; }
-            c->delim = argv[++j][0];
+            if (++j >= argc) { free(c); return -1; }
+            c->delim = argv[j][0];
             continue;
         }
-        if (strncmp(a, "-d", 2) == 0 && a[2] != '\0') {
-            c->delim = a[2];
-            continue;
-        }
+        if (strncmp(a, "-d", 2) == 0 && a[2] != '\0') { c->delim = a[2]; continue; }
 
-        // -f LIST  or -fLIST (attached)
+        // -f LIST or -fLIST (supports ranges 1,3-5,7-)
         if (strcmp(a, "-f") == 0) {
-            if (j+1 >= argc) { free(c); return -1; }
-            if (fp_fieldset_parse(argv[++j], &c->fields) < 0) { free(c); return -1; }
+            if (++j >= argc) { free(c); return -1; }
+            if (fp_fieldset_parse(argv[j], &c->fields) < 0) { free(c); return -1; }
             continue;
         }
         if (strncmp(a, "-f", 2) == 0 && a[2] != '\0') {
@@ -48,15 +47,21 @@ static int cut_parse(int argc, char **argv, int i, void **cfg_out) {
         if (strcmp(a, "-s") == 0) { c->suppress_no_delim = 1; continue; }
 
         if (strncmp(a, "--output-delimiter=", 20) == 0) {
-            c->outdelim = fp_xstrdup(a+20); continue;
+            c->outdelim = fp_xstrdup(a+20);
+            continue;
         }
 
-        break; // stop on unknown so fx can see next op
+        break; // unknown -> let fx see next token
     }
-    if (c->fields.bits == NULL) { free(c); return -1; } // -f required in this subset
+
+    if (c->fields.bits == NULL) { free(c); return -1; }
+
     if (!c->outdelim) {
-        c->outdelim = malloc(2); c->outdelim[0] = c->delim; c->outdelim[1] = '\0';
+        c->outdelim = malloc(2);
+        if (!c->outdelim) { fp_fieldset_free(&c->fields); free(c); return -1; }
+        c->outdelim[0]=c->delim; c->outdelim[1]='\0';
     }
+
     *cfg_out = c;
     return j;
 }
