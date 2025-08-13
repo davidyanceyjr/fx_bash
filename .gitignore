@@ -1,0 +1,25 @@
+# Compiled object files
+*.o
+
+# Shared objects (shared libraries)
+*.so
+
+# Static libraries
+*.a
+
+# Executables
+a.out
+*.out
+*.exe
+
+# Build directories
+build/
+dist/
+
+# Editor/OS generated files
+*~
+*.swp
+.DS_Store
+
+# Makefile generated files
+*.d
