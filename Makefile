@@ -8,7 +8,7 @@ BUILD_DIR  := build
 TARGET     := $(BUILD_DIR)/$(PKGNAME).so
 
 CC         ?= cc
-CFLAGS     ?= -std=c11 -O2 -fPIC -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-unused-function -D_GNU_SOURCE -D_POSIX_C_SOURCE=200809L
+CFLAGS     ?= -std=c11 -O2 -fPIC -g -O0 -Wall -Wextra -Wpedantic -Wno-unused-parameter -Wno-unused-function -D_GNU_SOURCE -D_POSIX_C_SOURCE=200809L
 LDFLAGS    ?= -shared
 BASH_INC   ?= /usr/include/bash
 INC        := -Iinclude -I$(BASH_INC) \

@@ -1,18 +1,18 @@
 // src/engine.c
 #define _POSIX_C_SOURCE 200809L
-#include <sys/types.h>
+#include <sys/types.h>   // getline(), ssize_t
+#include <unistd.h>      // isatty(), fileno()
 
 #include "engine.h"
-#include "util.h"   // defines FP_BUF_1M normally
-
-// Fallback in case an older util.h is picked up or include order breaks
-#ifndef FP_BUF_1M
-#define FP_BUF_1M (1<<20)
-#endif
+#include "util.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifndef FP_BUF_1M
+#define FP_BUF_1M (1<<20)
+#endif
 
 typedef struct {
     FILE *in;
@@ -98,10 +98,15 @@ void engine_free_plan(Plan *p) {
 
 /*** main streaming loop with multi-SOURCE support ***/
 int engine_run_plan(Plan *p) {
-    // Big stdio buffers
     static char inbuf[FP_BUF_1M], outbuf[FP_BUF_1M];
-    setvbuf(stdin,  inbuf,  _IOFBF, sizeof inbuf);
-    setvbuf(stdout, outbuf, _IOFBF, sizeof outbuf);
+
+    /* Only force big buffers for pipes/files; leave defaults on TTYs */
+    if (!isatty(fileno(stdin))) {
+        setvbuf(stdin,  inbuf,  _IOFBF, sizeof inbuf);
+    }
+    if (!isatty(fileno(stdout))) {
+        setvbuf(stdout, outbuf, _IOFBF, sizeof outbuf);
+    }
 
     if (p->nsteps == 0) return 0;
 
@@ -121,7 +126,6 @@ int engine_run_plan(Plan *p) {
     while (src_end < p->nsteps && p->steps[src_end].spec->kind == OP_SRC) src_end++;
     if (src_end == 0) {
         // Shouldn't happen because engine_add_default... ensures at least one SRC.
-        // But if it does, treat as stdin.
         src_end = 1;
     }
 
@@ -182,6 +186,10 @@ end_stream:
             if (p->steps[i].spec->flush(p->steps[i].cfg) < 0) rc = 2;
         }
     }
+
+    /* Builtins return to the same bash process; ensure buffered output is visible */
+    fflush(stdout);
+
     // exit code policy: 0 if any emitted, 1 if none (grep-like), else 2 on error
     if (rc >= 2) return rc;
     return any_emitted ? 0 : 1;

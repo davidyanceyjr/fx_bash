@@ -1,15 +1,17 @@
 // src/op_cat.c
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-#ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
-#endif
-#include <sys/types.h>
+#include <sys/types.h>   // getline(), ssize_t
+#include <unistd.h>      // isatty(), fileno()
+
 #include "ops.h"
 #include "util.h"
+
 #include <stdio.h>
 #include <string.h>
+
+#ifndef FP_BUF_1M
+#define FP_BUF_1M (1<<20)
+#endif
 
 typedef struct {
     char  **paths;      // argv slices
@@ -27,9 +29,10 @@ typedef struct {
     size_t  fbuf_sz;
 } cat_cfg;
 
-// Parse: cat [FILE ...]
-// Consumes args until next token is recognized as an op (so 'fx cat a b cut ...' works).
-// If no file given, default to "-" (stdin).
+/* Parse: cat [FILE ...]
+ * - Accept optional leading token "cat"/"fp_cat" (standalone and fx modes).
+ * - Consume file args until next op token (fx boundary); default to "-" if none.
+ */
 static int cat_parse(int argc, char **argv, int i, void **cfg_out) {
     cat_cfg *c = calloc(1, sizeof *c);
     if (!c) return -1;
@@ -62,9 +65,13 @@ static int cat_open_next(cat_cfg *c) {
         c->is_stdin = 0;
         if (!c->cur) return -1;
     }
-    // big buffered IO
+    // big buffered IO only when not a TTY (keep terminal defaults)
     if (!c->fbuf) { c->fbuf_sz = FP_BUF_1M; c->fbuf = malloc(c->fbuf_sz); }
-    if (c->cur) setvbuf(c->cur, c->fbuf, _IOFBF, c->fbuf_sz);
+    if (c->cur) {
+        if (!(c->is_stdin && isatty(fileno(stdin)))) {
+            setvbuf(c->cur, c->fbuf, _IOFBF, c->fbuf_sz);
+        }
+    }
     return 1;
 }
 
@@ -74,8 +81,8 @@ static int cat_produce(void *vcfg, char **linep, size_t *lenp) {
     for (;;) {
         if (!c->cur) {
             int o = cat_open_next(c);
-            if (o <= 0) return 0;      // EOF across all files or error on open?
-            if (o < 0) return -1;      // open failure
+            if (o == 0) return 0;      // EOF across all files
+            if (o < 0)  return -1;     // open failure
         }
         ssize_t n = getline(&c->buf, &c->cap, c->cur);
         if (n >= 0) {
@@ -103,6 +110,7 @@ static void cat_destroy(void *vcfg) {
     free(c);
 }
 
+/* ---- OpSpec ---- */
 static const OpSpec SPEC = {
     .name="fp_cat", .kind=OP_SRC,
     .parse=cat_parse, .init=NULL,

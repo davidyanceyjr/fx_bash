@@ -61,23 +61,27 @@ static int fx_entry(int argc, char **argv) {
 /*** Standalone wrappers: each builds plan of [src] -> op -> [maybe sink] ***/
 static int run_singleton(const OpSpec *spec, int argc, char **argv, const char *who) {
     Plan plan = {0};
-    void *cfg = NULL;
-    int next = spec->parse(argc, argv, 0, &cfg);
-    if (next <= 0 || next != argc) {
-        if (cfg && spec->destroy) spec->destroy(cfg);
-        fp_errf(who, -1, spec->name, "usage error\n");
+
+    // Build argv array starting with the op's canonical name
+    int argc2 = argc + 1;
+    char **argv2 = calloc(argc2 + 1, sizeof(char *));
+    if (!argv2) return 2;
+    argv2[0] = (char *)spec->name;
+    for (int k = 0; k < argc; k++)
+        argv2[k + 1] = argv[k];
+
+    // Build the plan using the same logic as "fx"
+    if (fx_build_plan(argc2, argv2, &plan, who) < 0) {
+        engine_free_plan(&plan);
+        free(argv2);
         return 2;
     }
-    plan.steps = malloc(sizeof(PlanStep));
-    if (!plan.steps) { if (cfg && spec->destroy) spec->destroy(cfg); return 2; }
-    plan.steps[0].spec = spec;
-    plan.steps[0].cfg  = cfg;
-    plan.nsteps = 1;
-    if (engine_add_default_stdio_source_sink_if_needed(&plan) < 0) {
-        engine_free_plan(&plan); return 2;
-    }
+
+    // Execute
     int rc = engine_run_plan(&plan);
     engine_free_plan(&plan);
+    free(argv2);
+
     if (rc == 0) return EXECUTION_SUCCESS;
     if (rc == 1) return 1;
     return 2;
